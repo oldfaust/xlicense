@@ -1,6 +1,7 @@
 require 'openssl'
 require 'optparse'
 require 'net/http'
+require 'tmpdir'
 
 # The function and variable names are visible in the final obfuscated thing.
 # I made them a bit cryptic because of this reason. It won't prevent anything
@@ -34,22 +35,24 @@ end
 
 ################################################################################
 # Encrypts and saves the encrypted data to the given file
-def sv_enc(d, fpth)
+# Note that the function modifies its input data.
+def sv_enc(dt, fpth)
     # TODO Just XOR the file data for now.
     # Later we'll use some encryption scheme
-    dt = d.bytes.to_a # Don't modify the input data
     for i in 0...dt.length
-        dt[i] = dt[i] ^ dt[i]
+        c = dt[i].ord
+        dt[i] = (c ^ c).chr
     end
-    IO.binwrite(dt, fpth)
+    IO.binwrite(fpth, dt)
 end
 
 def ld_enc(fpth)
     # TODO Just XOR the file data for now.
     # Later we'll use some encryption scheme
-    dt = IO.binread(fpth).bytes.to_a
+    dt = IO.binread(fpth)
     for i in 0...dt.length
-        dt[i] = dt[i] ^ dt[i]
+        c = dt[i].ord
+        dt[i] = (c ^ c).chr
     end
     return dt
 end
@@ -64,7 +67,6 @@ def chk_prm(app)
     # verify_depth???
     # TODO Use 'cert' with preloaded string instead of ca_file because the
     # latter may make us more vulnerable.
-    puts "Checking permissions for " + app
     cafile = '../xlserver/xlserver.crt' 
     uri = URI('https://127.0.0.1/check?app=' + app)
     Net::HTTP.start(uri.host, uri.port, 
@@ -81,7 +83,7 @@ end
 # Makes temporary directory to be used from outside
 def mk_tdr(&block)
     # TODO Make additional fake directories if needed
-    Dir.mktmpdir(block)
+    Dir.mktmpdir(&block)
 end
 
 ################################################################################
@@ -93,17 +95,18 @@ def rn_mm(data)
     mk_tdr { |dir|
         puts "Running the binary from dir: " + dir
     }
+    IO.binwrite("./dec.bin", data)
 end
 
 ################################################################################
 
 begin
     opts = prs_cmdl()
-    if opts.has_key?("enc_f") and opts.has_key?("enc_to")
-        sdt = IO.binread(opts[:enc_f])
-        sv_enc(sdt, opts[:enc_to])
+    if opts.has_key?(:enc_f) and opts.has_key?(:enc_to)
+        dt = IO.binread(opts[:enc_f])
+        sv_enc(dt, opts[:enc_to])
         puts "Encrypted binary saved to " + opts[:enc_to]
-    elsif opts.has_key?("run_f")
+    elsif opts.has_key?(:run_f)
         apth = opts[:run_f]
         chk_prm(File.basename(apth))
         dt = ld_enc(apth)
