@@ -7,6 +7,13 @@ require 'tmpdir'
 # I made them a bit cryptic because of this reason. It won't prevent anything
 # but at least will make the hacking one idea harder.
 #
+# TODO Remove these at some point in order to not be visible in the decompiled
+# .class file.
+# Password - Digest::SHA256.hexdigest("You are good to go.")
+P = "2f41fdb0419fea6b7573221b2e35d11a147b89c297843740cb191388877e93c2"
+# Salt - Digest::MD5.hexdigest("You are good to go.")
+S = "6ff957ea573e020fac47857ea7ea1891"
+#
 ################################################################################
 # Parses command line options
 def prs_cmdl
@@ -37,24 +44,27 @@ end
 # Encrypts and saves the encrypted data to the given file
 # Note that the function modifies its input data.
 def sv_enc(dt, fpth)
-    # TODO Just XOR the file data for now.
-    # Later we'll use some encryption scheme
-    for i in 0...dt.length
-        c = dt[i].ord
-        dt[i] = (c ^ c).chr
-    end
-    IO.binwrite(fpth, dt)
+    # TODO Later we'll use some better encryption scheme
+    # The IV could be randomly generated and inserted somewhere in the
+    # binary data and later obtained from there. It's length is know.
+    cph = OpenSSL::Cipher::AES256.new(:CBC)
+    ki = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len + cph.iv_len)
+    cph.encrypt
+    cph.key = ki[0, cph.key_len]
+    cph.iv = ki[cph.key_len, cph.iv_len]
+    IO.binwrite(fpth, cph.update(dt) + cph.final)
 end
 
 def ld_enc(fpth)
     # TODO Just XOR the file data for now.
     # Later we'll use some encryption scheme
     dt = IO.binread(fpth)
-    for i in 0...dt.length
-        c = dt[i].ord
-        dt[i] = (c ^ c).chr
-    end
-    return dt
+    cph = OpenSSL::Cipher::AES256.new(:CBC)
+    ki = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len + cph.iv_len)
+    cph.decrypt
+    cph.key = ki[0, cph.key_len]
+    cph.iv = ki[cph.key_len, cph.iv_len]
+    return cph.update(dt) + cph.final
 end
 
 ################################################################################
@@ -75,7 +85,7 @@ def chk_prm(app)
                     :ca_file => cafile) do |http|
         req = Net::HTTP::Get.new uri
         res = http.request(req)
-        raise 'No run permissions' if res.body.to_s != "You are good to go.\n"
+        raise 'No run permissions' if Digest::SHA256.hexdigest(res.body) != P
     end
 end
 

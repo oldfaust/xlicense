@@ -44,7 +44,7 @@ func getCommandLineSettings() settings {
 
 func checkHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("You are good to go.\n"))
+	w.Write([]byte("You are good to go."))
 }
 
 func main() {
