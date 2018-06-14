@@ -32,6 +32,11 @@ def prs_cmdl
                 "Run the given executable file") do |f|
             rt_opts[:run_f] = f
         end
+        opts.on("-C", "--cmline=COMMAND_LIN_ARGS", String, 
+                "The command line arguments which "+ 
+                "should be given to the spawned process") do |c|
+            rt_opts[:cm_ln] = c
+        end
         opts.on("-H", "--help", "Prints help") do
             puts opts
             exit
@@ -93,7 +98,9 @@ end
 # Makes temporary directory to be used from outside
 def mk_tdr(&block)
     # TODO Make additional fake directories if needed
-    Dir.mktmpdir(&block)
+   # Dir.mktmpdir(nil, '/tmp/test/', &block)
+    FileUtils.mkdir_p('/tmp/test/best')
+    block.call('/tmp/test/best')
 end
 
 ################################################################################
@@ -101,11 +108,17 @@ end
 # Unfortunately we can't access Linux functions like memfd_create without
 # additional .so file. The latter would introduce hooking point and
 # vulnerability. So, we need to write the file somewhere in the filesystem.
-def rn_mm(data)
+def rn_mm(data, bin, cl)
     mk_tdr { |dir|
-        puts "Running the binary from dir: " + dir
+        bp = "#{dir}/#{bin}"
+        bp_cl = bp + ' ' + cl
+        File.open(bp, File::CREAT|File::TRUNC|File::WRONLY, 0700) { |f|
+            f.write(data)
+        }
+        puts "Running the binary: #{bp_cl}"
+        pid = spawn(bp_cl)
+        Process.wait(pid)
     }
-    IO.binwrite("./dec.bin", data)
 end
 
 ################################################################################
@@ -116,11 +129,12 @@ begin
         dt = IO.binread(opts[:enc_f])
         sv_enc(dt, opts[:enc_to])
         puts "Encrypted binary saved to " + opts[:enc_to]
-    elsif opts.has_key?(:run_f)
+    elsif opts.has_key?(:run_f) and opts.has_key?(:cm_ln)
         apth = opts[:run_f]
-        chk_prm(File.basename(apth))
+        ap = File.basename(apth)
+        chk_prm(ap)
         dt = ld_enc(apth)
-        rn_mm(dt)
+        rn_mm(dt, ap, opts[:cm_ln])
     else
         raise "No needed options provided"
     end
