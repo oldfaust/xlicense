@@ -32,6 +32,10 @@ def prs_cmdl
                 "Run the given executable file") do |f|
             rt_opts[:run_f] = f
         end
+        opts.on("-B", "--bind_ip=BIND_IP", String, 
+                "IP to bind the client") do |i|
+            rt_opts[:bn_ip] = i
+        end
         opts.on("-C", "--cmline=COMMAND_LIN_ARGS", String, 
                 "The command line arguments which "+ 
                 "should be given to the spawned process") do |c|
@@ -74,7 +78,7 @@ end
 
 ################################################################################
 # Checks if we have permissions to run the given application
-def chk_prm(app)
+def chk_prm(app, bip)
     # TODO Think about how to test against MITM because currently if we use
     # wrong CA file the server rejects us, but what will happen if the server
     # accepts us and returns unexpected certificate. Is the VERIFY_PEER flag
@@ -84,14 +88,16 @@ def chk_prm(app)
     # latter may make us more vulnerable.
     cafile = '../xlserver/xlserver.crt' 
     uri = URI('https://127.0.0.1/check?app=' + app)
-    Net::HTTP.start(uri.host, uri.port, 
-                    :use_ssl => true, 
-                    :verify_mode => OpenSSL::SSL::VERIFY_PEER, 
-                    :ca_file => cafile) do |http|
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+    http.ca_file = cafile
+    http.local_host = bip
+    http.start {  |httpo|
         req = Net::HTTP::Get.new uri
-        res = http.request(req)
+        res = httpo.request(req)
         raise 'No run permissions' if Digest::SHA256.hexdigest(res.body) != P
-    end
+    }
 end
 
 ################################################################################
@@ -131,8 +137,12 @@ begin
         puts "Encrypted binary saved to " + opts[:enc_to]
     elsif opts.has_key?(:run_f) and opts.has_key?(:cm_ln)
         apth = opts[:run_f]
+        bnip = opts[:bn_ip]
+        if bnip == nil
+            raise "Provide bind IP"
+        end
         ap = File.basename(apth)
-        chk_prm(ap)
+        chk_prm(ap, bnip)
         dt = ld_enc(apth)
         rn_mm(dt, ap, opts[:cm_ln])
     else
