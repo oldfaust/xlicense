@@ -65,8 +65,9 @@ def sv_enc(dt, fpth)
 end
 
 def ld_enc(fpth)
-    # TODO Just XOR the file data for now.
-    # Later we'll use some encryption scheme
+    # TODO Later we'll use some better encryption scheme
+    # The IV could be randomly generated and inserted somewhere in the
+    # binary data and later obtained from there. It's length is know.
     dt = IO.binread(fpth)
     cph = OpenSSL::Cipher::AES256.new(:CBC)
     ki = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len + cph.iv_len)
@@ -101,12 +102,38 @@ def chk_prm(app, bip)
 end
 
 ################################################################################
+# Makes fake directories and returns the last one to be used.
+def mk_fdrs
+    l1_dr = rand(4...6)
+    l2_dr = rand(6...8)
+    l3_dr = rand(8...10)
+    drs = []
+    tdrs = [] 
+    arr = [*('A'..'Z'), *('a'..'z'), *('0'..'9')]
+    for i in 0..l1_dr
+        dir1 = arr.sample(8).join 
+        tdrs.push('/tmp/' + dir1)
+        for j in 0..l2_dr
+            dir2 = arr.sample(8).join 
+            for k in 0..l3_dr
+                dir3 = arr.sample(8).join
+                drs.push('/tmp/' + dir1 + '/' + dir2 + '/' + dir3)
+            end
+        end
+    end
+    for d in drs
+        FileUtils.mkdir_p(d)
+    end
+    return drs[-1], tdrs
+end
+
 # Makes temporary directory to be used from outside
 def mk_tdr(&block)
-    # TODO Make additional fake directories if needed
-   # Dir.mktmpdir(nil, '/tmp/test/', &block)
-    FileUtils.mkdir_p('/tmp/test/best')
-    block.call('/tmp/test/best')
+    bd, tdrs = mk_fdrs()
+    # Make additional temporary dir in the exec directory
+    Dir.mktmpdir(nil, bd, &block)
+    puts 'Removing dirs ' + tdrs.to_s
+    FileUtils.rm_r(tdrs, :force => true)
 end
 
 ################################################################################
@@ -123,7 +150,7 @@ def rn_mm(data, bin, cl)
         }
         puts "Running the binary: #{bp_cl}"
         pid = spawn(bp_cl)
-        Process.wait(pid)
+        #Process.wait(pid)
     }
 end
 
