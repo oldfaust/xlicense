@@ -57,24 +57,24 @@ def sv_enc(dt, fpth)
     # The IV could be randomly generated and inserted somewhere in the
     # binary data and later obtained from there. It's length is know.
     cph = OpenSSL::Cipher::AES256.new(:CBC)
-    ki = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len + cph.iv_len)
+    iv = OpenSSL::Random.pseudo_bytes(cph.iv_len)
     cph.encrypt
-    cph.key = ki[0, cph.key_len]
-    cph.iv = ki[cph.key_len, cph.iv_len]
-    IO.binwrite(fpth, cph.update(dt) + cph.final)
+    cph.key = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len)
+    cph.iv = iv
+    IO.binwrite(fpth, iv + cph.update(dt) + cph.final)
 end
 
 def ld_enc(fpth)
     # TODO Later we'll use some better encryption scheme
     # The IV could be randomly generated and inserted somewhere in the
     # binary data and later obtained from there. It's length is know.
+    puts 'Loading ' + fpth
     dt = IO.binread(fpth)
     cph = OpenSSL::Cipher::AES256.new(:CBC)
-    ki = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len + cph.iv_len)
     cph.decrypt
-    cph.key = ki[0, cph.key_len]
-    cph.iv = ki[cph.key_len, cph.iv_len]
-    return cph.update(dt) + cph.final
+    cph.key = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len)
+    cph.iv = dt[0, cph.iv_len]
+    return cph.update(dt[cph.iv_len .. -1]) + cph.final
 end
 
 ################################################################################
@@ -94,7 +94,6 @@ def chk_prm(app, bip, cs)
     # verify_depth???
     # TODO Use 'cert' with preloaded string instead of ca_file because the
     # latter may make us more vulnerable.
-    puts 'Checksum ' + cs
     cafile = '../xlserver/xlserver.crt'
     rq = 'https://127.0.0.1/check?app=' + app + '&ver=' + V + '&csum=' + cs;
     uri = URI(rq)
@@ -139,10 +138,13 @@ end
 # Makes temporary directory to be used from outside
 def mk_tdr(&block)
     bd, tdrs = mk_fdrs()
-    # Make additional temporary dir in the exec directory
-    Dir.mktmpdir(nil, bd, &block)
-    #puts 'Removing dirs ' + tdrs.to_s
-    FileUtils.rm_r(tdrs, :force => true)
+    begin
+        # Make additional temporary dir in the exec directory
+        Dir.mktmpdir(nil, bd, &block)
+    ensure
+        #puts 'Removing dirs ' + tdrs.to_s
+        FileUtils.rm_r(tdrs, :force => true)
+    end
 end
 
 ################################################################################
@@ -159,7 +161,15 @@ def rn_mm(data, bin, cl)
         }
         #puts "Running the binary: #{bp_cl}"
         pid = spawn(bp_cl)
-        #Process.wait(pid)
+        # The below sleep is kind of unfortunate but I couldn't figure out a
+        # another way to simulate timed wait.
+        # Basically if we try to start invalid ELF binary we'll get non nil
+        # status.
+        sleep(2)
+        Process.wait2(pid, Process::WNOHANG)
+        if ($? != nil)
+            raise 'Failed to start the binary'
+        end
     }
 end
 
