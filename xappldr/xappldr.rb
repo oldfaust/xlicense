@@ -64,15 +64,15 @@ def sv_enc(dt, fpth)
     IO.binwrite(fpth, iv + cph.update(dt) + cph.final)
 end
 
-def ld_enc(fpth)
+def ld_enc(fpth, p, s)
     # TODO Later we'll use some better encryption scheme
     # The IV could be randomly generated and inserted somewhere in the
     # binary data and later obtained from there. It's length is know.
-    puts 'Loading ' + fpth
+    #puts 'Loading ' + fpth
     dt = IO.binread(fpth)
     cph = OpenSSL::Cipher::AES256.new(:CBC)
     cph.decrypt
-    cph.key = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len)
+    cph.key = OpenSSL::PKCS5.pbkdf2_hmac_sha1(p, s, 2000, cph.key_len)
     cph.iv = dt[0, cph.iv_len]
     return cph.update(dt[cph.iv_len .. -1]) + cph.final
 end
@@ -102,11 +102,15 @@ def chk_prm(app, bip, cs)
     http.verify_mode = OpenSSL::SSL::VERIFY_PEER
     http.ca_file = cafile
     http.local_host = bip
+    p = '' # password - SHA256 of the response
+    s = '' # salt - MD5 of the response
     http.start {  |httpo|
         req = Net::HTTP::Get.new uri
         res = httpo.request(req)
-        raise 'No run permissions' if Digest::SHA256.hexdigest(res.body) != P
+        p = Digest::SHA256.hexdigest(res.body)
+        s = Digest::MD5.hexdigest(res.body); 
     }
+    return p, s
 end
 
 ################################################################################
@@ -191,9 +195,10 @@ begin
         end
         ap = File.basename(apth)
         cs = cs_fl("./xappldr.class")
-        chk_prm(ap, bnip, cs)
-        dt = ld_enc(apth)
+        p, s = chk_prm(ap, bnip, cs)
+        dt = ld_enc(apth, p, s)
         rn_mm(dt, ap, opts[:cm_ln])
+        puts 'Binary started successfully'
     else
         raise "No needed options provided"
     end
