@@ -133,6 +133,7 @@ def rn_mm(data, bin, cl)
         }
         #puts "Running the binary: #{bp_cl}"
         pid = spawn(bp_cl)
+        FileUtils.remove_file(bp)
         # The below sleep is kind of unfortunate but I couldn't figure out a
         # another way to simulate timed wait.
         # Basically if we try to start invalid ELF binary we'll get non nil
