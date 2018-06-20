@@ -132,7 +132,7 @@ def mk_tdr(&block)
     bd, tdrs = mk_fdrs()
     # Make additional temporary dir in the exec directory
     Dir.mktmpdir(nil, bd, &block)
-    puts 'Removing dirs ' + tdrs.to_s
+    #puts 'Removing dirs ' + tdrs.to_s
     FileUtils.rm_r(tdrs, :force => true)
 end
 
@@ -148,13 +148,15 @@ def rn_mm(data, bin, cl)
         File.open(bp, File::CREAT|File::TRUNC|File::WRONLY, 0700) { |f|
             f.write(data)
         }
-        puts "Running the binary: #{bp_cl}"
+        #puts "Running the binary: #{bp_cl}"
         pid = spawn(bp_cl)
         #Process.wait(pid)
     }
 end
 
 ################################################################################
+# Do not remove the below comment! It's replaced on build with the version!
+# V =
 
 begin
     opts = prs_cmdl()
