@@ -78,8 +78,15 @@ def ld_enc(fpth)
 end
 
 ################################################################################
+# Calculates SHA256 checksum of given file
+def cs_fl(fl)
+    dt = IO.binread(fl)
+    return Digest::SHA256.hexdigest(dt)
+end
+
+################################################################################
 # Checks if we have permissions to run the given application
-def chk_prm(app, bip)
+def chk_prm(app, bip, cs)
     # TODO Think about how to test against MITM because currently if we use
     # wrong CA file the server rejects us, but what will happen if the server
     # accepts us and returns unexpected certificate. Is the VERIFY_PEER flag
@@ -87,8 +94,10 @@ def chk_prm(app, bip)
     # verify_depth???
     # TODO Use 'cert' with preloaded string instead of ca_file because the
     # latter may make us more vulnerable.
-    cafile = '../xlserver/xlserver.crt' 
-    uri = URI('https://127.0.0.1/check?app=' + app)
+    puts 'Checksum ' + cs
+    cafile = '../xlserver/xlserver.crt'
+    rq = 'https://127.0.0.1/check?app=' + app + '&ver=' + V + '&csum=' + cs;
+    uri = URI(rq)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
     http.verify_mode = OpenSSL::SSL::VERIFY_PEER
@@ -171,7 +180,8 @@ begin
             raise "Provide bind IP"
         end
         ap = File.basename(apth)
-        chk_prm(ap, bnip)
+        cs = cs_fl("./xappldr.class")
+        chk_prm(ap, bnip, cs)
         dt = ld_enc(apth)
         rn_mm(dt, ap, opts[:cm_ln])
     else
