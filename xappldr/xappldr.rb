@@ -3,40 +3,21 @@ require 'optparse'
 require 'net/http'
 require 'tmpdir'
 
-# The function and variable names are visible in the final obfuscated thing.
-# I made them a bit cryptic because of this reason. It won't prevent anything
-# but at least will make the hacking one idea harder.
-#
-# TODO Remove these at some point in order to not be visible in the decompiled
-# .class file.
-# Password - Digest::SHA256.hexdigest("You are good to go.")
-P = "2f41fdb0419fea6b7573221b2e35d11a147b89c297843740cb191388877e93c2"
-# Salt - Digest::MD5.hexdigest("You are good to go.")
-S = "6ff957ea573e020fac47857ea7ea1891"
-#
 ################################################################################
 # Parses command line options
 def prs_cmdl
     rt_opts = {}
     OptionParser.new do |opts|
-        opts.banner = "Usage: ruby xappldr.rb [options]"
-        opts.on("-E", "--encrypt=FILE_PATH", String, 
-                "Encrypts the given file") do |f|
-            rt_opts[:enc_f] = f
-        end
-        opts.on("-T", "--to=FILE_PATH", String, 
-                "Path to save the encrypted file") do |f|
-            rt_opts[:enc_to] = f
-        end
+        opts.banner = "Usage: <script> [options]"
         opts.on("-R", "--run=FILE_PATH", String, 
-                "Run the given executable file") do |f|
+                "Run the given encrypted executable file") do |f|
             rt_opts[:run_f] = f
         end
         opts.on("-B", "--bind_ip=BIND_IP", String, 
                 "IP to bind the client") do |i|
             rt_opts[:bn_ip] = i
         end
-        opts.on("-C", "--cmline=COMMAND_LIN_ARGS", String, 
+        opts.on("-C", "--cmline=COMMAND_LINE_ARGS", String, 
                 "The command line arguments which "+ 
                 "should be given to the spawned process") do |c|
             rt_opts[:cm_ln] = c
@@ -50,20 +31,7 @@ def prs_cmdl
 end
 
 ################################################################################
-# Encrypts and saves the encrypted data to the given file
-# Note that the function modifies its input data.
-def sv_enc(dt, fpth)
-    # TODO Later we'll use some better encryption scheme
-    # The IV could be randomly generated and inserted somewhere in the
-    # binary data and later obtained from there. It's length is know.
-    cph = OpenSSL::Cipher::AES256.new(:CBC)
-    iv = OpenSSL::Random.pseudo_bytes(cph.iv_len)
-    cph.encrypt
-    cph.key = OpenSSL::PKCS5.pbkdf2_hmac_sha1(P, S, 2000, cph.key_len)
-    cph.iv = iv
-    IO.binwrite(fpth, iv + cph.update(dt) + cph.final)
-end
-
+# Loads encrypted data and decrypts it with the given password and salt
 def ld_enc(fpth, p, s)
     # TODO Later we'll use some better encryption scheme
     # The IV could be randomly generated and inserted somewhere in the
@@ -183,11 +151,7 @@ end
 
 begin
     opts = prs_cmdl()
-    if opts.has_key?(:enc_f) and opts.has_key?(:enc_to)
-        dt = IO.binread(opts[:enc_f])
-        sv_enc(dt, opts[:enc_to])
-        puts "Encrypted binary saved to " + opts[:enc_to]
-    elsif opts.has_key?(:run_f) and opts.has_key?(:cm_ln)
+    if opts.has_key?(:run_f) and opts.has_key?(:cm_ln)
         apth = opts[:run_f]
         bnip = opts[:bn_ip]
         if bnip == nil
