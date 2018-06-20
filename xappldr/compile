@@ -9,20 +9,19 @@
     //
     // Set the version variable
     //
-    $modified = false;
+    $ver = '';
     $lines = file($rb_script);
     foreach($lines as $idx => $line) {
         if ($line == ('# V ='. PHP_EOL)) {
             $dt = date('YmdHis');
             $git = trim(shell_exec('git rev-parse HEAD 2>/dev/null'));
-            $ver = '"' . $dt . '-' . $git . '"' . PHP_EOL;
+            $ver = $dt . '-' . $git;
             // Replace the line
-            $lines[$idx] = ('V = ' . $ver);
-            $modified = true;
+            $lines[$idx] = ('V = "' . $ver . '"' . PHP_EOL);
             break;
         }
     }
-    if ($modified !== true) {
+    if ($ver === '') {
         echo 'Error: Invalid script file "' . $rb_script . 
             '". Version placeholder not found!' . PHP_EOL;
         return;
@@ -32,6 +31,7 @@
     //
     $tmp_script = '___' . $rb_script . '___';
     $tmp_class = '___' . $rb_script . '___.class';
+    $srv_class = $ver . '.server.class';
     file_put_contents($tmp_script, $lines);
     $output  = [];
     $ret_code = 0;
@@ -44,6 +44,10 @@
         return;    
     }
     unlink($tmp_script);
+    if (copy($tmp_class, $srv_class) != true) {
+        echo 'Error: Failed to produce the server .class file!' . PHP_EOL;
+        return;
+    }
     if (rename($tmp_class, $class_file) !== true) {
         echo 'Error: Failed to produce the final .class file!' . PHP_EOL;
         return;
