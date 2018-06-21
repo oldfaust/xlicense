@@ -125,6 +125,7 @@ end
 # additional .so file. The latter would introduce hooking point and
 # vulnerability. So, we need to write the file somewhere in the filesystem.
 def rn_mm(data, bin, cl)
+    pid = nil
     mk_tdr { |dir|
         bp = "#{dir}/#{bin}"
         bp_cl = bp + ' ' + cl
@@ -134,16 +135,16 @@ def rn_mm(data, bin, cl)
         #puts "Running the binary: #{bp_cl}"
         pid = spawn(bp_cl)
         FileUtils.remove_file(bp)
-        # The below sleep is kind of unfortunate but I couldn't figure out a
-        # another way to simulate timed wait.
-        # Basically if we try to start invalid ELF binary we'll get non nil
-        # status.
-        sleep(2)
-        Process.wait2(pid, Process::WNOHANG)
-        if ($? != nil)
-            raise 'Failed to start the binary'
-        end
     }
+    # The below sleep is kind of unfortunate but I couldn't figure out a
+    # another way to simulate timed wait.
+    # Basically if we try to start invalid ELF binary we'll get non nil
+    # status.
+    sleep(2)
+    Process.wait2(pid, Process::WNOHANG)
+    if ($? != nil)
+        raise 'Failed to start the binary'
+    end
 end
 
 ################################################################################
