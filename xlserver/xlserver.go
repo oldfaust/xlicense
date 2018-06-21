@@ -1,8 +1,11 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -42,9 +45,46 @@ func getCommandLineSettings() settings {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func checkHandler(w http.ResponseWriter, req *http.Request) {
+func getFileChecksum(fileName string) (string, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func writeResponse(w http.ResponseWriter, resp string) {
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("You are good to go."))
+	w.Write([]byte(resp))
+}
+
+func checkHandler(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query()
+	app := q["app"]
+	ver := q["ver"]
+	csum := q["csum"]
+
+	if app == nil || ver == nil || csum == nil {
+		writeResponse(w, "Not good")
+		return
+	}
+
+	calc_csum, err := getFileChecksum(ver + ".server.class")
+	if err != nil {
+		writeResponse(w, "Not good")
+		return
+	} else if calc_csum != csum {
+		writeResponse(w, "Not good")
+		return
+	}
+
+	writeResponse(w, "XGFqCq6xm0gtFlbLDM0wRa1dm3FShwBerKhvebzA6So")
 }
 
 func main() {
@@ -55,3 +95,15 @@ func main() {
 		log.Fatal("Failed to start the server. ", err)
 	}
 }
+
+/*
+iimport (
+		"crypto/sha256"
+			"fmt"
+				"io"
+					"log"
+						"os"
+					)
+
+					func main() {
+*/

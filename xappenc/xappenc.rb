@@ -24,7 +24,7 @@ def parse_cmd_line
 end
 
 def save_encrypted(dt, fpth)
-    phrase = 'You are good to go.'
+    phrase = 'XGFqCq6xm0gtFlbLDM0wRa1dm3FShwBerKhvebzA6So'
     pass = Digest::SHA256.hexdigest(phrase)
     salt = Digest::MD5.hexdigest(phrase)
 
