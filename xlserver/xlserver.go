@@ -35,7 +35,7 @@ func getCommandLineSettings() settings {
 		"xlserver.key",
 		"Path to private key file")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(os.Stdout, "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -66,44 +66,43 @@ func writeResponse(w http.ResponseWriter, resp string) {
 
 func checkHandler(w http.ResponseWriter, req *http.Request) {
 	q := req.URL.Query()
-	app := q["app"]
-	ver := q["ver"]
-	csum := q["csum"]
+	// We expect only single values per query parameter.
+	// Thus we use Get instead of operator [].
+	app := q.Get("app")
+	ver := q.Get("ver")
+	csum := q.Get("csum")
 
-	if app == nil || ver == nil || csum == nil {
+	if app == "" || ver == "" || csum == "" {
 		writeResponse(w, "Not good")
+		log.Println("Error: Received invalid query:", req.URL.RawQuery)
 		return
 	}
 
-	calc_csum, err := getFileChecksum(ver + ".server.class")
+	log.Println("Processing query:", req.URL.RawQuery)
+
+	fname := ver + ".server.class"
+	calc_csum, err := getFileChecksum(fname)
 	if err != nil {
 		writeResponse(w, "Not good")
+		log.Println("Error: Couldn't calculate checksum for file.", err)
 		return
 	} else if calc_csum != csum {
 		writeResponse(w, "Not good")
+		log.Println("Error: Checksum doesn't match for file:", fname)
 		return
 	}
+
+	log.Println("Verification success for query:", req.URL.RawQuery)
 
 	writeResponse(w, "XGFqCq6xm0gtFlbLDM0wRa1dm3FShwBerKhvebzA6So")
 }
 
 func main() {
 	sts := getCommandLineSettings()
+	log.SetPrefix("xlserver: ")
 	http.HandleFunc("/check", checkHandler)
 	err := http.ListenAndServeTLS(sts.bindIp+":443", sts.certFile, sts.keyFile, nil)
 	if err != nil {
-		log.Fatal("Failed to start the server. ", err)
+		log.Fatal("Error: Failed to start the server.", err)
 	}
 }
-
-/*
-iimport (
-		"crypto/sha256"
-			"fmt"
-				"io"
-					"log"
-						"os"
-					)
-
-					func main() {
-*/
