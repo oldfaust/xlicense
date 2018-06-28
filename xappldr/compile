@@ -2,14 +2,25 @@
 <?php
     $rb_script = 'xappldr.rb';
     $class_file = 'xappldr.class';
+    $jruby_complete = 'jruby-complete.jar';
     if (!file_exists($rb_script)) {
         echo 'Error: Script file "' . $rb_script . '" not found!' . PHP_EOL;
         return;
     }
+    if (!file_exists($jruby_complete)) {
+        echo 'Error: Jar file "' . $jruby_complete . '" not found!' . PHP_EOL;
+        return;
+    }
+    //
+    // Calculate the checksum of the jruby-complete
+    //
+
     //
     // Set the version variable
     //
+    $founds = 0;
     $ver = '';
+    $csum = '';
     $lines = file($rb_script);
     foreach($lines as $idx => $line) {
         if ($line == ('# V ='. PHP_EOL)) {
@@ -18,12 +29,25 @@
             $ver = $dt . '-' . $git;
             // Replace the line
             $lines[$idx] = ('V = "' . $ver . '"' . PHP_EOL);
+            $founds += 1;
+        } else if ($line == ('# S ='. PHP_EOL)) {
+            $csum = hash_file("sha256", $jruby_complete)
+            // Replace the line
+            $lines[$idx] = ('S = "' . $csum . '"' . PHP_EOL);
+            $founds += 1;
+        }
+        if ($founds == 2) {
             break;
         }
     }
     if ($ver === '') {
         echo 'Error: Invalid script file "' . $rb_script . 
             '". Version placeholder not found!' . PHP_EOL;
+        return;
+    }
+    if ($csum === '') {
+        echo 'Error: Invalid script file "' . $rb_script . 
+            '". Checksum placeholder not found!' . PHP_EOL;
         return;
     }
     //
