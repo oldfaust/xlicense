@@ -1,3 +1,4 @@
+require 'java'
 require 'openssl'
 require 'optparse'
 require 'net/http'
@@ -60,15 +61,12 @@ def chk_prm(app, bip, cs)
     # accepts us and returns unexpected certificate. Is the VERIFY_PEER flag
     # enough to handle this case???
     # verify_depth???
-    # TODO Use 'cert' with preloaded string instead of ca_file because the
-    # latter may make us more vulnerable.
-    cafile = '../xlserver/xlserver.crt'
     rq = 'https://127.0.0.1/check?app=' + app + '&ver=' + V + '&csum=' + cs;
     uri = URI(rq)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = true
     http.verify_mode = OpenSSL::SSL::VERIFY_PEER
-    http.ca_file = cafile
+    http.ca_file = 'client.crt'
     http.local_host = bip
     p = '' # password - SHA256 of the response
     s = '' # salt - MD5 of the response
@@ -148,10 +146,23 @@ def rn_mm(data, bin, cl)
 end
 
 ################################################################################
-# Do not remove the below comment! It's replaced on build with the version!
-# V =
+# Checks if the application is started with modified jruby-complete.jar
+def chk_md(clspth, cmd)
+    raise 'It aint gonna work' \
+        unless (clspth == 'jruby-complete.jar') \
+            and cmd.start_with?('jruby-complete.jar xappldr.class') \
+            and (cs_fl('jruby-comlete.jar') == S)
+end
 
+################################################################################
+# Do not remove the below comments! They are replaced on compilation
+# V =
+# S =
+
+# puts java.lang.management.ManagementFactory.getRuntimeMXBean().getSystemProperties()
 begin
+    chk_md(java.lang.System.getProperty("java.class.path"),
+           java.lang.System.getProperty("sun.java.command"))
     opts = prs_cmdl()
     if opts.has_key?(:run_f) and opts.has_key?(:cm_ln)
         apth = opts[:run_f]
@@ -160,7 +171,7 @@ begin
             raise "Provide bind IP"
         end
         ap = File.basename(apth)
-        cs = cs_fl("./xappldr.class")
+        cs = cs_fl("xappldr.class")
         p, s = chk_prm(ap, bnip, cs)
         dt = ld_enc(apth, p, s)
         rn_mm(dt, ap, opts[:cm_ln])
