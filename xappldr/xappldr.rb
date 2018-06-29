@@ -151,7 +151,7 @@ def chk_md(clspth, cmd)
     raise 'It aint gonna work' \
         unless (clspth == 'jruby-complete.jar') \
             and cmd.start_with?('jruby-complete.jar xappldr.class') \
-            and (cs_fl('jruby-comlete.jar') == S)
+            and (cs_fl('jruby-complete.jar') == S)
 end
 
 ################################################################################

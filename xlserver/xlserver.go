@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +57,7 @@ func getFileChecksum(fileName string) (string, error) {
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return strings.ToLower(hex.EncodeToString(h.Sum(nil))), nil
 }
 
 func writeResponse(w http.ResponseWriter, resp string) {
